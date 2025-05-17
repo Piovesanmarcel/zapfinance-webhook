@@ -47,10 +47,33 @@ export default async function handler(req, res) {
         }
       }
 
+           console.log("📩 Mensagem recebida:", text);
+
+      const linhas = text.split('\\n');
+      let valor = null, categoria = null, descricao = null;
+
+      for (let linha of linhas) {
+        const lower = linha.toLowerCase();
+        if (lower.includes('gasto')) {
+          valor = linha.replace(/[^0-9,\\.]/g, '').replace(',', '.');
+        } else if (lower.includes('categoria')) {
+          categoria = linha.split(':')[1]?.trim();
+        } else if (lower.includes('descr')) {
+          descricao = linha.split(':')[1]?.trim();
+        }
+      }
+
+      console.log("🧾 Dados extraídos:", { valor, categoria, descricao });
+
       if (!valor || !categoria || !descricao) {
-        console.log("❌ Dados incompletos:", { valor, categoria, descricao });
+        console.log("❌ Dados incompletos: mensagem ignorada");
         return new Response("Dados incompletos", { status: 200 });
       }
+
+      // Enviar ao Supabase
+      fetch("https://mpjjgpcoupqhvvlquwca.supabase.co/rest/v1/gastos", {
+        ...
+
 
       // Envio ao Supabase sem aguardar resposta (assíncrono)
       fetch("https://mpjjgpcoupqhvvlquwca.supabase.co/rest/v1/gastos", {

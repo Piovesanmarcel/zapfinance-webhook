@@ -8,7 +8,6 @@ export default async function handler(req, res) {
     const challenge = query['hub.challenge'];
 
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-      console.log('🔐 Webhook verificado com sucesso!');
       return new Response(challenge, { status: 200 });
     } else {
       return new Response('Forbidden', { status: 403 });
@@ -24,39 +23,53 @@ export default async function handler(req, res) {
         const from = message?.from;
         const text = message?.text?.body;
 
-        console.log('📩 Mensagem recebida de:', from);
-        console.log('📨 Conteúdo bruto:', text);
+        if (!text) return new Response('No message text', { status: 200 });
 
-        // EXTRAÇÃO DE DADOS DO GASTO
-        const regex = /Gasto:\s*R?\$?\s*(\d+[,.]?\d*)\\nCategoria:\s*(.*?)\\nDescri[cç][aã]o:\s*(.*)/i;
-        const lines = text?.split('\n') || [];
-        let valor, categoria, descricao;
+        // Extrair dados do texto
+        const linhas = text.split('\n');
+        let valor = null, categoria = null, descricao = null;
 
-        for (let i = 0; i < lines.length; i++) {
-          const linha = lines[i].toLowerCase();
-
-          if (linha.includes('gasto')) {
+        for (let linha of linhas) {
+          const lower = linha.toLowerCase();
+          if (lower.includes('gasto')) {
             valor = linha.replace(/[^0-9,\.]/g, '').replace(',', '.');
-          }
-          if (linha.includes('categoria')) {
-            categoria = lines[i].split(':')[1]?.trim();
-          }
-          if (linha.includes('descr')) {
-            descricao = lines[i].split(':')[1]?.trim();
+          } else if (lower.includes('categoria')) {
+            categoria = linha.split(':')[1]?.trim();
+          } else if (lower.includes('descr')) {
+            descricao = linha.split(':')[1]?.trim();
           }
         }
 
-        console.log('🧾 Gasto processado:');
-        console.log('• Valor:', valor);
-        console.log('• Categoria:', categoria);
-        console.log('• Descrição:', descricao);
+        // Verifica se os campos são válidos
+        if (!valor || !categoria || !descricao) {
+          console.log('❌ Dados incompletos:', { valor, categoria, descricao });
+          return new Response('Dados incompletos', { status: 200 });
+        }
 
+        // Salvar no Supabase
+        const response = await fetch('https://mpjjgpcoupqhvvlquwca.supabase.co/rest/v1/gastos', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wampncGNvdXBxaHZ2bHF1d2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5NzU3MjYsImV4cCI6MjA2MjU1MTcyNn0.JPf62i2Nf6QWtn7DK81uFAYgEWbIKO_Y0hRQatTVwj0',
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wampncGNvdXBxaHZ2bHF1d2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5NzU3MjYsImV4cCI6MjA2MjU1MTcyNn0.JPf62i2Nf6QWtn7DK81uFAYgEWbIKO_Y0hRQatTVwj0',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            valor: parseFloat(valor),
+            categoria,
+            descricao,
+            telefone: from
+          })
+        });
+
+        console.log('✅ Gasto salvo com sucesso:', { valor, categoria, descricao });
         return new Response('ok', { status: 200 });
       } else {
-        return new Response('Not Found', { status: 404 });
+        return new Response('Evento ignorado', { status: 200 });
       }
     } catch (err) {
-      console.error('❌ Erro ao processar POST:', err);
+      console.error('❌ Erro ao processar mensagem:', err);
       return new Response('Erro interno', { status: 500 });
     }
   }

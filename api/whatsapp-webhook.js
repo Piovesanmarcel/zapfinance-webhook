@@ -25,7 +25,31 @@ export default async function handler(req, res) {
         const text = message?.text?.body;
 
         console.log('📩 Mensagem recebida de:', from);
-        console.log('📨 Conteúdo:', text);
+        console.log('📨 Conteúdo bruto:', text);
+
+        // EXTRAÇÃO DE DADOS DO GASTO
+        const regex = /Gasto:\s*R?\$?\s*(\d+[,.]?\d*)\\nCategoria:\s*(.*?)\\nDescri[cç][aã]o:\s*(.*)/i;
+        const lines = text?.split('\n') || [];
+        let valor, categoria, descricao;
+
+        for (let i = 0; i < lines.length; i++) {
+          const linha = lines[i].toLowerCase();
+
+          if (linha.includes('gasto')) {
+            valor = linha.replace(/[^0-9,\.]/g, '').replace(',', '.');
+          }
+          if (linha.includes('categoria')) {
+            categoria = lines[i].split(':')[1]?.trim();
+          }
+          if (linha.includes('descr')) {
+            descricao = lines[i].split(':')[1]?.trim();
+          }
+        }
+
+        console.log('🧾 Gasto processado:');
+        console.log('• Valor:', valor);
+        console.log('• Categoria:', categoria);
+        console.log('• Descrição:', descricao);
 
         return new Response('ok', { status: 200 });
       } else {

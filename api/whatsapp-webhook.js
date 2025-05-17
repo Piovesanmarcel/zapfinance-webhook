@@ -43,41 +43,32 @@ export default async function handler(req, res) {
         return new Response("Dados incompletos", { status: 200 });
       }
 
-      // Timeout seguro com AbortController
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos máx.
+      // Enviar para Supabase
+      const response = await fetch("https://mpjjgpcoupqhvvlquwca.supabase.co/rest/v1/gastos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wampncGNvdXBxaHZ2bHF1d2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5NzU3MjYsImV4cCI6MjA2MjU1MTcyNn0.JPf62i2Nf6QWtn7DK81uFAYgEWbIKO_Y0hRQatTVwj0",
+          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wampncGNvdXBxaHZ2bHF1d2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5NzU3MjYsImV4cCI6MjA2MjU1MTcyNn0.JPf62i2Nf6QWtn7DK81uFAYgEWbIKO_Y0hRQatTVwj0",
+          "Prefer": "return=representation"
+        },
+        body: JSON.stringify({
+          valor: parseFloat(valor),
+          categoria,
+          descricao,
+          telefone: from
+        })
+      });
 
-      try {
-        const response = await fetch("https://mpjjgpcoupqhvvlquwca.supabase.co/rest/v1/gastos", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            "Prefer": "return=minimal"
-          },
-          body: JSON.stringify({
-            valor: parseFloat(valor),
-            categoria,
-            descricao,
-            telefone: from
-          }),
-          signal: controller.signal
-        });
+      const resultado = await response.text();
+      console.log("📤 Resposta Supabase:", resultado);
 
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          console.error("❌ Supabase falhou:", await response.text());
-          return new Response("Erro ao salvar", { status: 500 });
-        }
-
-        console.log("✅ Gasto salvo com sucesso");
-        return new Response("Salvo com sucesso", { status: 200 });
-      } catch (e) {
-        console.error("❌ Erro na requisição Supabase:", e);
-        return new Response("Erro no Supabase", { status: 500 });
+      if (!response.ok) {
+        console.error("❌ Falha ao salvar no Supabase");
+        return new Response("Erro ao salvar", { status: 500 });
       }
+
+      return new Response("Salvo com sucesso", { status: 200 });
 
     } catch (err) {
       console.error("❌ Erro inesperado:", err);

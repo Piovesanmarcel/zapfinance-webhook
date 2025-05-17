@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   if (method === 'POST') {
     try {
       if (body.object !== 'whatsapp_business_account') {
-        console.log("Evento ignorado");
+        console.log("🔕 Evento ignorado");
         return new Response("Evento ignorado", { status: 200 });
       }
 
@@ -28,26 +28,11 @@ export default async function handler(req, res) {
       const text = message?.text?.body;
 
       if (!text) {
-        console.log("Mensagem sem texto recebida");
+        console.log("📭 Mensagem sem texto");
         return new Response("Mensagem sem texto", { status: 200 });
       }
 
-      // Extrair dados
-      const linhas = text.split('\n');
-      let valor = null, categoria = null, descricao = null;
-
-      for (let linha of linhas) {
-        const lower = linha.toLowerCase();
-        if (lower.includes('gasto')) {
-          valor = linha.replace(/[^0-9,\.]/g, '').replace(',', '.');
-        } else if (lower.includes('categoria')) {
-          categoria = linha.split(':')[1]?.trim();
-        } else if (lower.includes('descr')) {
-          descricao = linha.split(':')[1]?.trim();
-        }
-      }
-
-           console.log("📩 Mensagem recebida:", text);
+      console.log("📩 Mensagem recebida:", text);
 
       const linhas = text.split('\\n');
       let valor = null, categoria = null, descricao = null;
@@ -66,16 +51,11 @@ export default async function handler(req, res) {
       console.log("🧾 Dados extraídos:", { valor, categoria, descricao });
 
       if (!valor || !categoria || !descricao) {
-        console.log("❌ Dados incompletos: mensagem ignorada");
+        console.log("⚠️ Dados incompletos, ignorando.");
         return new Response("Dados incompletos", { status: 200 });
       }
 
-      // Enviar ao Supabase
-      fetch("https://mpjjgpcoupqhvvlquwca.supabase.co/rest/v1/gastos", {
-        ...
-
-
-      // Envio ao Supabase sem aguardar resposta (assíncrono)
+      // Disparar envio ao Supabase sem aguardar
       fetch("https://mpjjgpcoupqhvvlquwca.supabase.co/rest/v1/gastos", {
         method: "POST",
         headers: {
@@ -90,13 +70,16 @@ export default async function handler(req, res) {
           descricao,
           telefone: from
         })
-      }).then(() => {
+      })
+      .then(() => {
         console.log("✅ Gasto salvo com sucesso");
-      }).catch((e) => {
+      })
+      .catch((e) => {
         console.error("❌ Erro ao salvar no Supabase:", e);
       });
 
-      return new Response("Mensagem recebida, processando...", { status: 200 });
+      // Resposta rápida antes de aguardar Supabase
+      return new Response("Recebido, processando...", { status: 200 });
 
     } catch (err) {
       console.error("❌ Erro inesperado:", err);
@@ -106,4 +89,3 @@ export default async function handler(req, res) {
 
   return new Response('Método não permitido', { status: 405 });
 }
-

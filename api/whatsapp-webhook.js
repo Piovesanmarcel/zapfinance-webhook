@@ -22,28 +22,33 @@ export default async function handler(req, res) {
 
       console.log("📨 Mensagem recebida:", text);
 
-      // ⚠️ RESPOSTA IMEDIATA para evitar timeout
-      const response = new Response("Recebido", { status: 200 });
+      if (!text) {
+        return new Response("Sem texto", { status: 200 });
+      }
 
-      // ⚠️ CONTINUA EM BACKGROUND
-      setTimeout(() => {
-        if (!text) return;
+      const linhas = text.split('\n');
+      let valor = null, categoria = null, descricao = null;
 
-        const linhas = text.split('\n');
-        let valor = null, categoria = null, descricao = null;
+      for (let linha of linhas) {
+        const lower = linha.toLowerCase().trim();
+        if (lower.startsWith('gasto')) valor = linha.split(':')[1]?.replace(/[^0-9,\.]/g, '').replace(',', '.').trim();
+        if (lower.startsWith('categoria')) categoria = linha.split(':')[1]?.trim();
+        if (lower.startsWith('descr') || lower.includes('descrição')) descricao = linha.split(':')[1]?.trim();
+      }
 
-        for (let linha of linhas) {
-          const lower = linha.toLowerCase().trim();
-          if (lower.startsWith('gasto')) valor = linha.split(':')[1]?.replace(/[^0-9,\.]/g, '').replace(',', '.').trim();
-          if (lower.startsWith('categoria')) categoria = linha.split(':')[1]?.trim();
-          if (lower.startsWith('descr') || lower.includes('descrição')) descricao = linha.split(':')[1]?.trim();
-        }
+      console.log("🧾 Dados extraídos:", { valor, categoria, descricao });
 
-        console.log("🧾 Dados extraídos:", { valor, categoria, descricao });
+      if (!valor || !categoria || !descricao) {
+        console.log("⚠️ Dados incompletos, ignorando");
+        return new Response("Dados incompletos", { status: 200 });
+      }
 
-        if (!valor || !categoria || !descricao) return;
+      // Timeout seguro com AbortController
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos máx.
 
-        fetch("https://mpjjgpcoupqhvvlquwca.supabase.co/rest/v1/gastos", {
+      try {
+        const response = await fetch("https://mpjjgpcoupqhvvlquwca.supabase.co/rest/v1/gastos", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -56,15 +61,26 @@ export default async function handler(req, res) {
             categoria,
             descricao,
             telefone: from
-          })
-        })
-        .then(() => console.log("✅ Gasto enviado ao Supabase"))
-        .catch(e => console.error("❌ Falha ao salvar gasto:", e));
-      }, 1);
+          }),
+          signal: controller.signal
+        });
 
-      return response;
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          console.error("❌ Supabase falhou:", await response.text());
+          return new Response("Erro ao salvar", { status: 500 });
+        }
+
+        console.log("✅ Gasto salvo com sucesso");
+        return new Response("Salvo com sucesso", { status: 200 });
+      } catch (e) {
+        console.error("❌ Erro na requisição Supabase:", e);
+        return new Response("Erro no Supabase", { status: 500 });
+      }
+
     } catch (err) {
-      console.error("❌ Erro geral:", err);
+      console.error("❌ Erro inesperado:", err);
       return new Response("Erro interno", { status: 500 });
     }
   }

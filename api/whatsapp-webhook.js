@@ -1,96 +1,72 @@
-
 export default async function handler(req, res) {
-  const { method, body, query } = req;
+  const { method, query, body } = req;
 
   if (method === 'GET') {
-    const VERIFY_TOKEN = 'zapfinance123';
     const mode = query['hub.mode'];
     const token = query['hub.verify_token'];
     const challenge = query['hub.challenge'];
 
-    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    if (mode === 'subscribe' && token === 'zapfinance123') {
       return new Response(challenge, { status: 200 });
-    } else {
-      return new Response('Token inválido', { status: 403 });
     }
+
+    return new Response("Token inválido", { status: 403 });
   }
 
   if (method === 'POST') {
     try {
-      if (body.object !== 'whatsapp_business_account') {
-        console.log("🔕 Evento ignorado");
-        return new Response("Evento ignorado", { status: 200 });
-      }
-
-      const entry = body.entry?.[0];
-      const changes = entry?.changes?.[0];
-      const message = changes?.value?.messages?.[0];
+      const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
       const from = message?.from;
       const text = message?.text?.body;
 
-      if (!text) {
-        console.log("📭 Mensagem sem texto");
-        return new Response("Mensagem sem texto", { status: 200 });
-      }
+      console.log("📨 Mensagem recebida:", text);
 
-      console.log("📩 Mensagem recebida:", text);
+      // ⚠️ RESPOSTA IMEDIATA para evitar timeout
+      const response = new Response("Recebido", { status: 200 });
 
-      const linhas = text.split('\n');
-      let valor = null, categoria = null, descricao = null;
+      // ⚠️ CONTINUA EM BACKGROUND
+      setTimeout(() => {
+        if (!text) return;
 
-      for (let linha of linhas) {
-        const lower = linha.toLowerCase().trim();
+        const linhas = text.split('\\n');
+        let valor = null, categoria = null, descricao = null;
 
-        if (lower.startsWith('gasto')) {
-          valor = linha.split(':')[1]?.replace(/[^0-9,\.]/g, '').replace(',', '.').trim();
+        for (let linha of linhas) {
+          const lower = linha.toLowerCase().trim();
+          if (lower.startsWith('gasto')) valor = linha.split(':')[1]?.replace(/[^0-9,\\.]/g, '').replace(',', '.').trim();
+          if (lower.startsWith('categoria')) categoria = linha.split(':')[1]?.trim();
+          if (lower.startsWith('descr') || lower.includes('descrição')) descricao = linha.split(':')[1]?.trim();
         }
 
-        if (lower.startsWith('categoria')) {
-          categoria = linha.split(':')[1]?.trim();
-        }
+        console.log("🧾 Dados extraídos:", { valor, categoria, descricao });
 
-        if (lower.startsWith('descr') || lower.includes('descrição')) {
-          descricao = linha.split(':')[1]?.trim();
-        }
-      }
+        if (!valor || !categoria || !descricao) return;
 
-      console.log("🧾 Dados extraídos:", { valor, categoria, descricao });
-
-      if (!valor || !categoria || !descricao) {
-        console.log("⚠️ Dados incompletos, ignorando.");
-        return new Response("Dados incompletos", { status: 200 });
-      }
-
-      // Disparar envio ao Supabase sem aguardar
-      fetch("https://mpjjgpcoupqhvvlquwca.supabase.co/rest/v1/gastos", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-          "Prefer": "return=minimal"
-        },
-        body: JSON.stringify({
-          valor: parseFloat(valor),
-          categoria,
-          descricao,
-          telefone: from
+        fetch("https://mpjjgpcoupqhvvlquwca.supabase.co/rest/v1/gastos", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "Prefer": "return=minimal"
+          },
+          body: JSON.stringify({
+            valor: parseFloat(valor),
+            categoria,
+            descricao,
+            telefone: from
+          })
         })
-      })
-      .then(() => {
-        console.log("✅ Gasto salvo com sucesso");
-      })
-      .catch((e) => {
-        console.error("❌ Erro ao salvar no Supabase:", e);
-      });
+        .then(() => console.log("✅ Gasto enviado ao Supabase"))
+        .catch(e => console.error("❌ Falha ao salvar gasto:", e));
+      }, 1);
 
-      return new Response("Recebido, processando...", { status: 200 });
-
+      return response;
     } catch (err) {
-      console.error("❌ Erro inesperado:", err);
+      console.error("❌ Erro geral:", err);
       return new Response("Erro interno", { status: 500 });
     }
   }
 
-  return new Response('Método não permitido', { status: 405 });
+  return new Response("Método não permitido", { status: 405 });
 }

@@ -1,3 +1,4 @@
+
 export default async function handler(req, res) {
   const { method, query, body } = req;
 
@@ -28,12 +29,12 @@ export default async function handler(req, res) {
       setTimeout(() => {
         if (!text) return;
 
-        const linhas = text.split('\\n');
+        const linhas = text.split('\n');
         let valor = null, categoria = null, descricao = null;
 
         for (let linha of linhas) {
           const lower = linha.toLowerCase().trim();
-          if (lower.startsWith('gasto')) valor = linha.split(':')[1]?.replace(/[^0-9,\\.]/g, '').replace(',', '.').trim();
+          if (lower.startsWith('gasto')) valor = linha.split(':')[1]?.replace(/[^0-9,\.]/g, '').replace(',', '.').trim();
           if (lower.startsWith('categoria')) categoria = linha.split(':')[1]?.trim();
           if (lower.startsWith('descr') || lower.includes('descrição')) descricao = linha.split(':')[1]?.trim();
         }

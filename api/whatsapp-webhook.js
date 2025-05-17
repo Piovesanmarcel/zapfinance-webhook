@@ -1,3 +1,4 @@
+
 export default async function handler(req, res) {
   const { method, body, query } = req;
 
@@ -34,16 +35,21 @@ export default async function handler(req, res) {
 
       console.log("📩 Mensagem recebida:", text);
 
-      const linhas = text.split('\\n');
+      const linhas = text.split('\n');
       let valor = null, categoria = null, descricao = null;
 
       for (let linha of linhas) {
-        const lower = linha.toLowerCase();
-        if (lower.includes('gasto')) {
-          valor = linha.replace(/[^0-9,\\.]/g, '').replace(',', '.');
-        } else if (lower.includes('categoria')) {
+        const lower = linha.toLowerCase().trim();
+
+        if (lower.startsWith('gasto')) {
+          valor = linha.split(':')[1]?.replace(/[^0-9,\.]/g, '').replace(',', '.').trim();
+        }
+
+        if (lower.startsWith('categoria')) {
           categoria = linha.split(':')[1]?.trim();
-        } else if (lower.includes('descr')) {
+        }
+
+        if (lower.startsWith('descr') || lower.includes('descrição')) {
           descricao = linha.split(':')[1]?.trim();
         }
       }
@@ -78,7 +84,6 @@ export default async function handler(req, res) {
         console.error("❌ Erro ao salvar no Supabase:", e);
       });
 
-      // Resposta rápida antes de aguardar Supabase
       return new Response("Recebido, processando...", { status: 200 });
 
     } catch (err) {

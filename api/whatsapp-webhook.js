@@ -6,11 +6,9 @@ export default async function handler(req, res) {
     const mode = query['hub.mode'];
     const token = query['hub.verify_token'];
     const challenge = query['hub.challenge'];
-
     if (mode === 'subscribe' && token === 'zapfinance123') {
       return new Response(challenge, { status: 200 });
     }
-
     return new Response("Token inválido", { status: 403 });
   }
 
@@ -19,55 +17,63 @@ export default async function handler(req, res) {
       const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
       const from = message?.from;
       const text = message?.text?.body;
-
       console.log("📨 Mensagem recebida:", text);
 
-      if (!text) {
-        return new Response("Sem texto", { status: 200 });
-      }
+      if (!text) return new Response("Sem texto", { status: 200 });
 
       const linhas = text.split('\n');
-      let valor = null, categoria = null, descricao = null;
+      let valor = null, categoria = null, descricao = null, tipo = "gasto";
 
       for (let linha of linhas) {
         const lower = linha.toLowerCase().trim();
-        if (lower.startsWith('gasto')) valor = linha.split(':')[1]?.replace(/[^0-9,\.]/g, '').replace(',', '.').trim();
+
+        // Detecta tipo e extrai valor usando regex
+        if (lower.startsWith("gasto")) {
+          const match = linha.match(/\d+[\.,]?\d*/);
+          valor = match ? match[0].replace(',', '.').trim() : null;
+          tipo = "gasto";
+        }
+
+        if (lower.startsWith("receita")) {
+          const match = linha.match(/\d+[\.,]?\d*/);
+          valor = match ? match[0].replace(',', '.').trim() : null;
+          tipo = "entrada";
+        }
+
         if (lower.startsWith('categoria')) categoria = linha.split(':')[1]?.trim();
         if (lower.startsWith('descr') || lower.includes('descrição')) descricao = linha.split(':')[1]?.trim();
       }
 
-      console.log("🧾 Dados extraídos:", { valor, categoria, descricao });
+      console.log("🧾 Dados extraídos:", { valor, categoria, descricao, tipo });
 
       if (!valor || !categoria || !descricao) {
         console.log("⚠️ Dados incompletos, ignorando");
         return new Response("Dados incompletos", { status: 200 });
       }
 
-      // Enviar para Supabase
       const response = await fetch("https://mpjjgpcoupqhvvlquwca.supabase.co/rest/v1/gastos", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wampncGNvdXBxaHZ2bHF1d2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5NzU3MjYsImV4cCI6MjA2MjU1MTcyNn0.JPf62i2Nf6QWtn7DK81uFAYgEWbIKO_Y0hRQatTVwj0",
-          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wampncGNvdXBxaHZ2bHF1d2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5NzU3MjYsImV4cCI6MjA2MjU1MTcyNn0.JPf62i2Nf6QWtn7DK81uFAYgEWbIKO_Y0hRQatTVwj0",
-          "Prefer": "return=representation"
+          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          "Prefer": "return=minimal"
         },
         body: JSON.stringify({
           valor: parseFloat(valor),
           categoria,
           descricao,
-          telefone: from
+          telefone: from,
+          tipo
         })
       });
 
-      const resultado = await response.text();
-      console.log("📤 Resposta Supabase:", resultado);
-
       if (!response.ok) {
-        console.error("❌ Falha ao salvar no Supabase");
+        console.error("❌ Erro ao salvar no Supabase:", await response.text());
         return new Response("Erro ao salvar", { status: 500 });
       }
 
+      console.log(`✅ ${tipo === "entrada" ? "Receita" : "Gasto"} salvo com sucesso`);
       return new Response("Salvo com sucesso", { status: 200 });
 
     } catch (err) {
@@ -78,3 +84,4 @@ export default async function handler(req, res) {
 
   return new Response("Método não permitido", { status: 405 });
 }
+

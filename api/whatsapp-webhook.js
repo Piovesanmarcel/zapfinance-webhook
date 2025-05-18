@@ -1,25 +1,19 @@
 
 export default async function handler(req, res) {
-  const { method, query, body } = req;
+  console.log("📡 Função acionada - método:", req.method);
 
-  if (method === 'GET') {
-    const mode = query['hub.mode'];
-    const token = query['hub.verify_token'];
-    const challenge = query['hub.challenge'];
-    if (mode === 'subscribe' && token === 'zapfinance123') {
-      return new Response(challenge, { status: 200 });
-    }
-    return new Response("Token inválido", { status: 403 });
-  }
-
-  if (method === 'POST') {
+  if (req.method === 'POST') {
     try {
-      const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+      const body = req.body;
+      const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
       const from = message?.from;
       const text = message?.text?.body;
       console.log("📨 Mensagem recebida:", text);
 
-      if (!text) return new Response("Sem texto", { status: 200 });
+      if (!text) {
+        res.status(200).send("Sem texto");
+        return;
+      }
 
       const linhas = text.split('\n');
       let valor = null, categoria = null, descricao = null, tipo = "gasto";
@@ -27,7 +21,6 @@ export default async function handler(req, res) {
       for (let linha of linhas) {
         const lower = linha.toLowerCase().trim();
 
-        // Detecta tipo e extrai valor usando regex
         if (lower.startsWith("gasto")) {
           const match = linha.match(/\d+[\.,]?\d*/);
           valor = match ? match[0].replace(',', '.').trim() : null;
@@ -48,16 +41,18 @@ export default async function handler(req, res) {
 
       if (!valor || !categoria || !descricao) {
         console.log("⚠️ Dados incompletos, ignorando");
-        return new Response("Dados incompletos", { status: 200 });
+        res.status(200).send("Dados incompletos");
+        return;
       }
 
+      // Enviar para Supabase
       const response = await fetch("https://mpjjgpcoupqhvvlquwca.supabase.co/rest/v1/gastos", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-          "Prefer": "return=minimal"
+          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wampncGNvdXBxaHZ2bHF1d2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5NzU3MjYsImV4cCI6MjA2MjU1MTcyNn0.JPf62i2Nf6QWtn7DK81uFAYgEWbIKO_Y0hRQatTVwj0",
+          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wampncGNvdXBxaHZ2bHF1d2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5NzU3MjYsImV4cCI6MjA2MjU1MTcyNn0.JPf62i2Nf6QWtn7DK81uFAYgEWbIKO_Y0hRQatTVwj0",
+          "Prefer": "return=representation"
         },
         body: JSON.stringify({
           valor: parseFloat(valor),
@@ -69,18 +64,24 @@ export default async function handler(req, res) {
       });
 
       if (!response.ok) {
-        console.error("❌ Erro ao salvar no Supabase:", await response.text());
-        return new Response("Erro ao salvar", { status: 500 });
+        const erro = await response.text();
+        console.error("❌ Erro ao salvar no Supabase:", erro);
+        res.status(500).send("Erro ao salvar");
+        return;
       }
 
       console.log(`✅ ${tipo === "entrada" ? "Receita" : "Gasto"} salvo com sucesso`);
-      return new Response("Salvo com sucesso", { status: 200 });
+      res.status(200).send("Salvo com sucesso");
 
     } catch (err) {
       console.error("❌ Erro inesperado:", err);
-      return new Response("Erro interno", { status: 500 });
+      res.status(500).send("Erro interno");
     }
+  } else {
+    res.status(405).send("Método não permitido");
   }
+}
+
 
   return new Response("Método não permitido", { status: 405 });
 }

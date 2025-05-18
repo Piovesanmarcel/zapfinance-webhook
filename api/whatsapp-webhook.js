@@ -45,14 +45,13 @@ export default async function handler(req, res) {
         return;
       }
 
-      // Enviar para Supabase
       const response = await fetch("https://mpjjgpcoupqhvvlquwca.supabase.co/rest/v1/gastos", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wampncGNvdXBxaHZ2bHF1d2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5NzU3MjYsImV4cCI6MjA2MjU1MTcyNn0.JPf62i2Nf6QWtn7DK81uFAYgEWbIKO_Y0hRQatTVwj0",
-          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wampncGNvdXBxaHZ2bHF1d2NhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5NzU3MjYsImV4cCI6MjA2MjU1MTcyNn0.JPf62i2Nf6QWtn7DK81uFAYgEWbIKO_Y0hRQatTVwj0",
-          "Prefer": "return=representation"
+          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          "Prefer": "return=minimal"
         },
         body: JSON.stringify({
           valor: parseFloat(valor),
@@ -80,9 +79,5 @@ export default async function handler(req, res) {
   } else {
     res.status(405).send("Método não permitido");
   }
-}
-
-
-  return new Response("Método não permitido", { status: 405 });
 }
 
